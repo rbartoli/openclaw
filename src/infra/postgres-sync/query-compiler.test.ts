@@ -2,6 +2,12 @@ import { DatabaseSync } from "node:sqlite";
 import { Kysely, sql } from "kysely";
 import { describe, expect, it } from "vitest";
 import {
+  jsonArrayValue,
+  jsonOrderedArray,
+  jsonValueFromText,
+} from "../database-engine/json-values.js";
+import { engineBinaryHexSql } from "../database-engine/text-bytes.js";
+import {
   compileSqliteQueryBindings,
   encodeSqliteStringSet,
   getNodeSqliteKysely,
@@ -17,6 +23,32 @@ const postgres = new Kysely<Tables>({
       throw new Error("Compile-only test must not connect");
     },
   }),
+});
+
+it("compiles binary and nested JSON tuples as one PostgreSQL text aggregate", () => {
+  using db = new DatabaseSync(":memory:");
+  // Only dialect selection is exercised; this test never executes PostgreSQL SQL.
+  Object.defineProperty(db, Symbol.for("openclaw.postgres-sync-connection"), { value: true });
+  const query = getNodeSqliteKysely<{
+    items: { bytes: Uint8Array | null; payload: string | null };
+  }>(db);
+  const compiled = query
+    .selectFrom("items")
+    .select((eb) =>
+      jsonOrderedArray(
+        db,
+        jsonArrayValue(db, [
+          engineBinaryHexSql(db, eb.ref("bytes")),
+          jsonValueFromText(db, eb.ref("payload")),
+        ]),
+        [],
+      ).as("value"),
+    )
+    .compile();
+  expect(compiled.sql).toBe(
+    `select coalesce(json_agg(json_build_array(encode("bytes", 'hex'), cast("payload" as json)))::text, '[]') as "value" from "items"`,
+  );
+  expect(compiled.parameters).toEqual([]);
 });
 
 // Live two-engine semantics and the selective index plan are covered by string-set.conformance.

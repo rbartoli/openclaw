@@ -12,7 +12,9 @@ import {
   jsonRemovePaths,
   jsonSetPath,
   jsonValid,
+  jsonValueFromText,
 } from "./json-values.js";
+import { engineBinaryHexSql } from "./text-bytes.js";
 
 it("preserves ordered row objects, JSON text fields, and empty projection results", () => {
   const { DatabaseSync } = requireNodeSqlite();
@@ -92,5 +94,38 @@ it("aggregates typed tuples in key order without quoting nested arrays", () => {
   expect(executeSqliteQuerySync(db, aggregate).rows).toEqual([{ value: '[["a",null],["b",2]]' }]);
   expect(executeSqliteQuerySync(db, aggregate.where("id", "=", "missing")).rows).toEqual([
     { value: "[]" },
+  ]);
+});
+
+it("preserves binary hex, SQL nulls, and embedded JSON in aggregated tuples", () => {
+  const { DatabaseSync } = requireNodeSqlite();
+  using db = new DatabaseSync(":memory:");
+  db.exec("CREATE TABLE items (id INTEGER PRIMARY KEY, bytes BLOB, payload TEXT)");
+  const insert = db.prepare("INSERT INTO items VALUES (?, ?, ?)");
+  insert.run(0, Buffer.from([0, 255]), '{"path":"λ🦞","nested":[null,true,{"value":3}]}');
+  insert.run(1, Buffer.alloc(0), null);
+  insert.run(2, null, "[]");
+  const query = getNodeSqliteKysely<{
+    items: { id: number; bytes: Uint8Array | null; payload: string | null };
+  }>(db);
+  const result = executeSqliteQuerySync(
+    db,
+    query
+      .selectFrom("items")
+      .select((eb) =>
+        jsonOrderedArray(
+          db,
+          jsonArrayValue(db, [
+            engineBinaryHexSql(db, eb.ref("bytes")),
+            jsonValueFromText(db, eb.ref("payload")),
+          ]),
+          [eb.ref("id")],
+        ).as("value"),
+      ),
+  ).rows[0]!;
+  expect(JSON.parse(result.value)).toEqual([
+    ["00ff", { path: "λ🦞", nested: [null, true, { value: 3 }] }],
+    ["", null],
+    [null, []],
   ]);
 });

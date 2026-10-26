@@ -58,6 +58,16 @@ export function jsonArrayValue(
   return /* kysely-allow-raw: Engine-owned JSON tuple construction. */ sql<string>`${sql.raw(isPostgresSqlConnection(db) ? "json_build_array" : "json_array")}(${sql.join(values)})`;
 }
 
+/** Embed stored JSON as a value rather than a quoted JSON string. */
+export function jsonValueFromText(
+  db: DatabaseSync | PostgresSqlConnection,
+  value: Expression<string | null>,
+): AliasableExpression<unknown> {
+  return isPostgresSqlConnection(db)
+    ? expressionBuilder().cast(value, "json")
+    : expressionBuilder().fn("json", [value]);
+}
+
 export function jsonObjectValue(
   db: DatabaseSync | PostgresSqlConnection,
   fields: Readonly<Record<string, Expression<unknown>>>,

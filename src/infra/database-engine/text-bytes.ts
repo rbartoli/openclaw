@@ -2,6 +2,20 @@ import type { DatabaseSync } from "node:sqlite";
 import { sql, type Expression, type RawBuilder } from "kysely";
 import { isPostgresSqlConnection, type PostgresSqlConnection } from "../sql-connection.js";
 
+/** Encode binary values without collapsing SQL NULL into SQLite's empty hex string. */
+export function engineBinaryHexSql(
+  db: DatabaseSync | PostgresSqlConnection,
+  value: Expression<Uint8Array | null>,
+): RawBuilder<string | null> {
+  return isPostgresSqlConnection(db)
+    ? /* kysely-allow-raw: PostgreSQL encodes bytea directly and preserves SQL NULL. */ sql<
+        string | null
+      >`encode(${value}, 'hex')`
+    : /* kysely-allow-raw: SQLite hex(NULL) is empty text; digest links require a distinct null. */ sql<
+        string | null
+      >`case when ${value} is null then null else lower(hex(${value})) end`;
+}
+
 /** Slice encoded bytes on the server; SQLite retains its physical text encoding. */
 export function engineTextByteSliceSql(
   db: DatabaseSync | PostgresSqlConnection,

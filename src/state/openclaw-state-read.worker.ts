@@ -1,5 +1,6 @@
 import { toStringifiedError } from "@openclaw/normalization-core/error-coercion";
 import type { WorkerTaskHandler } from "@openclaw/worker-runtime/worker";
+import type { LocalWorkspaceTreeCache } from "../gateway/worker-environments/local-workspace-manifest-scan.js";
 import { getSqliteRuntimeCapabilities } from "../infra/bun-sqlite-library.js";
 import {
   getDatabaseEngineSelection,
@@ -27,6 +28,8 @@ import type {
   OpenClawStateReadResult,
 } from "./openclaw-state-read.types.js";
 import { encodeOpenClawStateWorkerError } from "./openclaw-state-worker-error.js";
+
+let manifestTreeCache: LocalWorkspaceTreeCache | undefined;
 
 const read: WorkerTaskHandler<OpenClawStateReadReply> = async function read(
   message,
@@ -137,7 +140,11 @@ const read: WorkerTaskHandler<OpenClawStateReadReply> = async function read(
         const snapshot = withOpenClawStateReadOnlyLocation(
           ({ db }) => {
             sourceAdmitted = true;
-            return manifestReader.readLocalWorkspaceManifestRows(db, command.input);
+            return manifestReader.readLocalWorkspaceManifestRows(
+              db,
+              command.input,
+              (manifestTreeCache ??= manifestReader.createLocalWorkspaceTreeCache()),
+            );
           },
           ...locationArgs,
         );
@@ -295,5 +302,10 @@ serveOwnedWorkerTasks(
     const run = () => read(message, channel, control);
     return await (bridge ? bridge.run(run) : run());
   },
-  { closeResource: closeRetainedOpenClawStateReadConnections },
+  {
+    closeResource: (key) => {
+      manifestTreeCache?.clear();
+      return closeRetainedOpenClawStateReadConnections(key);
+    },
+  },
 );
