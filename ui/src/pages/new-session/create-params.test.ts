@@ -62,6 +62,7 @@ function expectParams(input: Partial<Draft>, output: object) {
     contextWindow: input.contextWindow ?? "",
     thinkingLevel: input.thinkingLevel ?? "",
     fastMode: input.fastMode,
+    cyberAccessProgram: input.cyberAccessProgram ?? undefined,
   });
   try {
     expect(
@@ -70,13 +71,19 @@ function expectParams(input: Partial<Draft>, output: object) {
         message: input.message ?? "task",
         visibility: input.visibility ?? "normal",
       }),
-    ).toEqual({ agentId: "main", message: "task", ...output });
+    ).toEqual({ agentId: "main", message: "task", cyberAccessProgram: "standard", ...output });
   } finally {
     state.modelControl.reset();
   }
 }
 
 describe("buildSelectedSessionCreateParams", () => {
+  it.each(["standard", "daybreak_blue", "daybreak_red"] as const)(
+    "preserves explicit %s Access",
+    (cyberAccessProgram) => {
+      expectParams({ cyberAccessProgram }, { cyberAccessProgram });
+    },
+  );
   const repository = { url: "https://github.com/openclaw/openclaw.git", ref: "release" };
   const checkout = {
     projectId: "old-clone",

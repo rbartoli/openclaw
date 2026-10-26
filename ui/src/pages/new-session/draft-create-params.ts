@@ -18,6 +18,7 @@ export function buildSelectedSessionCreateParams(
     contextWindow: place.modelControl.contextWindow,
     thinkingLevel: place.modelControl.thinkingLevel,
     fastMode: place.modelControl.fastMode,
+    cyberAccessProgram: place.modelControl.cyberAccessProgram ?? "standard",
     projectId: place.hostedEnvironment
       ? undefined
       : (place.browser.remoteProject?.projectId ?? place.browser.projectId),
@@ -95,6 +96,7 @@ export function buildSelectedSessionCreateParams(
     ...(!catalogId && contextWindow ? { contextWindow } : {}),
     ...(!catalogId && thinkingLevel ? { thinkingLevel } : {}),
     ...(!catalogId && draft.fastMode !== undefined ? { fastMode: draft.fastMode } : {}),
+    cyberAccessProgram: draft.cyberAccessProgram,
     ...(draft.toolOverrides ? { toolOverrides: draft.toolOverrides } : {}),
     ...(draft.permissionMode ? { permissionMode: draft.permissionMode } : {}),
     ...(projectId ? { projectId } : {}),

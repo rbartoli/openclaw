@@ -98,7 +98,8 @@ export async function existingSessionSelectionWouldChange(params: {
   }
   if (
     params.requestedCyberAccessProgram !== undefined &&
-    (params.requestedCyberAccessProgram ?? undefined) !== params.existingEntry.cyberAccessProgram
+    (params.requestedCyberAccessProgram ?? "standard") !==
+      (params.existingEntry.cyberAccessProgram ?? "standard")
   ) {
     return true;
   }

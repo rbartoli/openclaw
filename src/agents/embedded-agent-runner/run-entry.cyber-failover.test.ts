@@ -148,6 +148,16 @@ describe("runEmbeddedAgentEntry cyber failover", () => {
     },
   );
 
+  it("does not escalate an explicit Standard selection", async () => {
+    const runCandidate = vi.fn<EntryParams["runCandidate"]>(async (provider, model) =>
+      makeRefusalResult(provider, model),
+    );
+    await runEntry(runCandidate, {
+      selection: { cfg: {}, provider: "openai", model: "gpt-5.6", cyberAccessProgram: "standard" },
+    });
+    expect(runCandidate).toHaveBeenCalledTimes(1);
+  });
+
   it("retries a replay-safe OpenAI cyber refusal once with Blue Access without changing selection", async () => {
     const reconcile = vi.fn(async () => {});
     const runCandidate = vi.fn<EntryParams["runCandidate"]>(async (provider, model, options) =>

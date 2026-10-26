@@ -1,5 +1,5 @@
 import { createChangeListeners } from "../../../../src/shared/listeners.js";
-import type { FastMode, GatewayAgentRow } from "../../api/types.ts";
+import type { CyberAccessProgram, FastMode, GatewayAgentRow } from "../../api/types.ts";
 import type { DurableDraftModelSelection } from "../../lib/chat/composer-draft-store.runtime.ts";
 import { normalizeThinkingOptionValue } from "../../lib/chat/thinking.ts";
 import type { ModelRuntimeEntry } from "../../lib/model-runtime-choice.ts";
@@ -21,7 +21,10 @@ export type NewSessionModelLoadOptions = {
 };
 
 export type ModelSelectionChange = (
-  selection: Pick<NewSessionPreference, "model" | "agentRuntime" | "thinkingLevel" | "fastMode">,
+  selection: Pick<
+    NewSessionPreference,
+    "model" | "agentRuntime" | "thinkingLevel" | "fastMode" | "cyberAccessProgram"
+  >,
 ) => void;
 
 /** Mutable intent belongs to this draft, separate from remembered defaults and catalog metadata. */
@@ -82,6 +85,7 @@ export abstract class NewSessionModelSelection {
   contextWindow = "";
   thinkingLevel = "";
   fastMode: FastMode | undefined;
+  cyberAccessProgram: CyberAccessProgram | undefined;
 
   private readonly listeners = createChangeListeners();
   protected readonly notify = () => {
@@ -102,6 +106,7 @@ export abstract class NewSessionModelSelection {
     this.contextWindow = "";
     this.thinkingLevel = "";
     this.fastMode = undefined;
+    this.cyberAccessProgram = undefined;
     this.selectionOrigin = "none";
     this.fastModeSelected = false;
   }
@@ -120,12 +125,13 @@ export abstract class NewSessionModelSelection {
   }
 
   draftSelection(agentId: string): DurableDraftModelSelection | undefined {
-    return this.selectionOrigin !== "none"
+    return this.selectionOrigin !== "none" || this.cyberAccessProgram !== undefined
       ? {
           agentId,
           model: this.selected,
           agentRuntime: this.agentRuntime,
           thinkingLevel: this.thinkingLevel,
+          cyberAccessProgram: this.cyberAccessProgram,
         }
       : undefined;
   }
@@ -147,13 +153,16 @@ export abstract class NewSessionModelSelection {
         agentRuntime: this.agentRuntime,
         thinkingLevel: this.thinkingLevel,
         fastMode,
+        cyberAccessProgram: this.cyberAccessProgram,
       };
     }
     if (options.initialModel) {
-      return options.initialModelPending ? { model: options.initialModel } : undefined;
+      return options.initialModelPending
+        ? { model: options.initialModel, cyberAccessProgram: preference?.cyberAccessProgram }
+        : undefined;
     }
     return options.policy === "configured" || options.policy === null
-      ? { fastMode }
+      ? { fastMode, cyberAccessProgram: preference?.cyberAccessProgram }
       : this.fastModeSelected
         ? { ...preference, fastMode }
         : preference;
@@ -172,6 +181,7 @@ export abstract class NewSessionModelSelection {
     this.selected = selection.model;
     this.agentRuntime = selection.agentRuntime;
     this.thinkingLevel = selection.thinkingLevel;
+    this.cyberAccessProgram = selection.cyberAccessProgram;
     if (!this.fastModeSelected) {
       this.fastMode = fastMode ?? this.fastMode;
     }
@@ -216,7 +226,10 @@ export abstract class NewSessionModelSelection {
       fastMode: preference.fastMode,
       ...options,
     });
-    const changed = this.applyModelSelection(selection);
+    const changed =
+      this.applyModelSelection(selection) ||
+      this.cyberAccessProgram !== preference.cyberAccessProgram;
+    this.cyberAccessProgram = preference.cyberAccessProgram;
     if (selection.repaired && persistRepair) {
       this.persistSelection(preference.agentRuntime ? (this.agentRuntime ?? "") : undefined);
     }
@@ -258,12 +271,21 @@ export abstract class NewSessionModelSelection {
     return { target, runtimeChanged };
   }
 
+  protected selectAccessProgram(value: CyberAccessProgram | null) {
+    this.cyberAccessProgram = value ?? "standard";
+    this.markExplicitSelection();
+    this.persistSelection();
+    this.onDraftSelectionChange?.();
+    this.notify();
+  }
+
   protected persistSelection(agentRuntime = this.agentRuntime) {
     this.onSelectionChange({
       model: this.selected,
       ...(agentRuntime !== undefined ? { agentRuntime } : {}),
       thinkingLevel: this.thinkingLevel,
       fastMode: this.fastMode,
+      cyberAccessProgram: this.cyberAccessProgram,
     });
   }
 }

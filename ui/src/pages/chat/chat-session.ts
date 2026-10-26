@@ -251,14 +251,14 @@ export function switchChatSetting(
   }
   const captured = captureChatSettingsTarget(host, targetSessionKey);
   if (selection.kind === "cyberAccessProgram") {
-    if ((captured.settings.cyberAccessProgram ?? null) === selection.value) {
+    if (captured.settings.cyberAccessProgram === (selection.value ?? "standard")) {
       return Promise.resolve(true);
     }
     return applyChatSetting(
       host,
       targetSessionKey,
       captured,
-      { cyberAccessProgram: selection.value },
+      { cyberAccessProgram: selection.value ?? "standard" },
       "access program",
     );
   }

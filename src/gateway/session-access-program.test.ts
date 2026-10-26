@@ -8,7 +8,7 @@ import {
   mainStoreEntry,
 } from "./sessions-patch.test-support.js";
 
-test("keeps explicit Standard distinct from clearing the saved access program", async () => {
+test("clears stale Access to explicit Standard", async () => {
   const store = mainStoreEntry({ cyberAccessProgram: "daybreak_blue" });
   const standard = expectPatchOk(
     await runPatch({
@@ -23,7 +23,7 @@ test("keeps explicit Standard distinct from clearing the saved access program", 
       patch: { key: MAIN_SESSION_KEY, cyberAccessProgram: null },
     }),
   );
-  expect(cleared).not.toHaveProperty("cyberAccessProgram");
+  expect(cleared.cyberAccessProgram).toBe("standard");
 });
 
 test.each(["standard", "daybreak_blue", "daybreak_red"] as const)(

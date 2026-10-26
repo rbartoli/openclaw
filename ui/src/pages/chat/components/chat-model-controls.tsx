@@ -583,11 +583,12 @@ function createChatModelControls(props: ChatModelControlsProps): Accessor<{
       model: {
         accessProgramRecovery:
           props.requestedAccessProgram !== undefined &&
+          props.requestedAccessProgram !== "standard" &&
           !showAccessProgram &&
           props.onAccessProgramSelect
             ? {
                 disabled: accessProgramDisabled,
-                onClear: (sessionKey) => props.onAccessProgramSelect?.(null, sessionKey),
+                onClear: (sessionKey) => props.onAccessProgramSelect?.("standard", sessionKey),
               }
             : undefined,
         providerAuth: props.modelAuthStatusResult ? providerAuth : undefined,

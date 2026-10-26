@@ -291,11 +291,11 @@ it.each(["standard", null] as const)(
         const a = await expectDefined(entered[0], "turn gate").promise;
         expect(a.queued.run).toMatchObject(selectionX);
         expect((await patchSession({ cyberAccessProgram: program }))[0]).toBe(true);
-        expect(loadSessionEntry(scope)?.cyberAccessProgram).toBe(program ?? undefined);
+        expect(loadSessionEntry(scope)?.cyberAccessProgram).toBe(program ?? "standard");
         expect([a.queued.run, b.run, c.run].map((run) => run.cyberAccessProgram)).toEqual([
           "daybreak_blue",
-          program ?? undefined,
-          program ?? undefined,
+          program ?? "standard",
+          program ?? "standard",
         ]);
         expect((await patchSession({ thinkingLevel: "high" }))[0]).toBe(true);
         expect([a.queued.run, b.run, c.run]).toMatchObject([selectionX, highX, highX]);
@@ -305,9 +305,9 @@ it.each(["standard", null] as const)(
         expectDefined(release[0], "turn gate").resolve();
         const admittedB = await expectDefined(entered[1], "turn gate").promise;
         expect(admittedB.queued).toMatchObject({ prompt: "B", run: selectionY });
-        expect(admittedB.queued.run.cyberAccessProgram).toBe(program ?? undefined);
+        expect(admittedB.queued.run.cyberAccessProgram).toBe(program ?? "standard");
         expect((await patchSession({ cyberAccessProgram: "daybreak_blue" }))[0]).toBe(true);
-        expect(admittedB.queued.run.cyberAccessProgram).toBe(program ?? undefined);
+        expect(admittedB.queued.run.cyberAccessProgram).toBe(program ?? "standard");
         expect((await patchSession({ model: "fixture/z", thinkingLevel: "off" }))[0]).toBe(true);
         expect([a.queued.run, admittedB.queued.run, c.run]).toMatchObject([
           selectionX,
@@ -352,10 +352,10 @@ it.each(["standard", null] as const)(
       try {
         await entered.promise;
         expect((await patchSession({ cyberAccessProgram: program }))[0]).toBe(true);
-        expect(queued.run.cyberAccessProgram).toBe(program ?? undefined);
+        expect(queued.run.cyberAccessProgram).toBe(program ?? "standard");
         release.resolve();
         turn = await starting;
-        expect(turn.queued.run.cyberAccessProgram).toBe(program ?? undefined);
+        expect(turn.queued.run.cyberAccessProgram).toBe(program ?? "standard");
       } finally {
         release.resolve();
         turn ??= await starting;
@@ -533,7 +533,7 @@ it.each([
     { cyberAccessProgram: "standard" },
     { ...selectionX, cyberAccessProgram: "standard" },
     { cyberAccessProgram: null },
-    { ...selectionX, cyberAccessProgram: undefined },
+    { ...selectionX, cyberAccessProgram: "standard" },
     false,
   ],
 ] as const)(

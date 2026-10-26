@@ -83,6 +83,48 @@ function fixture(defaultOnly = false) {
 }
 
 describe("session model patches under operator policy", () => {
+  it("rejects Access denied by the historical alias policy and keeps clearing safe", async () => {
+    const cfg: OpenClawConfig = { agents: { defaults: { model: "openai/fixture" } } };
+    let policy = prepareOperatorModelPolicy({
+      cfg,
+      policy: { allow: ["openai/*"], deny: ["openai/gpt-daybreak-red-latest"] },
+    });
+    const operatorAuthority = createAdmittedRunOperatorAuthority({
+      profileId: "limited-operator",
+      scopes: ["operator.write"],
+      assertCurrent: () => {},
+      get modelPolicy() {
+        return policy;
+      },
+    });
+    const project = (cyberAccessProgram: "daybreak_blue" | "daybreak_red" | null) =>
+      projectSessionsPatchEntry({
+        cfg,
+        operatorAuthority,
+        storeKey: key,
+        existingEntry: {
+          sessionId: "access-session",
+          updatedAt: 1,
+          cyberAccessProgram: "daybreak_red",
+        },
+        isLabelInUse: () => false,
+        patch: { key, cyberAccessProgram },
+      });
+    expect(await project("daybreak_red")).toMatchObject({
+      ok: false,
+      error: { code: "FORBIDDEN" },
+    });
+    const blue = await project("daybreak_blue");
+    assert(blue.ok);
+    expect(blue.validateModelSelection?.()).toBeUndefined();
+    policy = prepareOperatorModelPolicy({ cfg, policy: { allow: ["openai/fixture"] } });
+    expect(blue.validateModelSelection?.()).toMatchObject({ code: "FORBIDDEN" });
+    expect(await project(null)).toMatchObject({
+      ok: true,
+      entry: { cyberAccessProgram: "standard" },
+    });
+  });
+
   it.each<[string | null, "source" | "model-policy" | undefined]>([
     ["fixture/blocked", undefined],
     ["blocked", undefined],

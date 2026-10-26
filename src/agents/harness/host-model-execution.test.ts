@@ -8,6 +8,7 @@ import {
 } from "../../plugins/runtime.js";
 import {
   createAdmittedRunOperatorAuthority,
+  bindOperatorModelExecution,
   prepareSystemAgentRunAdmission,
 } from "../admitted-run-context.js";
 import type { PreparedNativeSessionRuntime } from "../embedded-agent-runner/run/model-setup.js";
@@ -129,6 +130,39 @@ async function createHarness(mode: HarnessMode, restricted: boolean, exact: bool
     state,
   };
 }
+
+it("rejects saved forbidden Access before invoking a native harness", async () => {
+  const { execute, attempt, runAttempt } = await createHarness("native", true, true);
+  attempt.cyberAccessProgram = "daybreak_blue";
+  await expect(execute()).rejects.toThrow("operator role cannot use this Access level");
+  expect(runAttempt).not.toHaveBeenCalled();
+});
+
+it("revokes one Access execution without canceling Standard under the same source", () => {
+  const initial = prepareOperatorModelPolicy({
+    cfg,
+    policy: { allow: ["fixture/a", "openai/gpt-daybreak-blue-latest"] },
+  });
+  const authority = createAuthority(initial);
+  const blue = bindOperatorModelExecution(authority.source, {
+    ...permittedModel,
+    cyberAccessProgram: "daybreak_blue",
+  })!;
+  const standard = bindOperatorModelExecution(authority.source, {
+    ...permittedModel,
+    cyberAccessProgram: "standard",
+  })!;
+  try {
+    authority.update(policy);
+    expect(blue.signal.aborted).toBe(true);
+    expect(blue.assertCurrent).toThrow("operator role cannot use this Access level");
+    expect(standard.signal.aborted).toBe(false);
+    expect(standard.assertCurrent).not.toThrow();
+  } finally {
+    blue.release();
+    standard.release();
+  }
+});
 
 type HarnessOperation = "execution" | "finalization";
 it.each([true, false])("prepares web search for a known native model (%s)", async (known) => {

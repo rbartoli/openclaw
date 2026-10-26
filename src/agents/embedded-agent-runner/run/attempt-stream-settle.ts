@@ -444,16 +444,20 @@ export async function prepareEmbeddedAttemptTransport(input: {
     settingsManager: input.settingsManager,
     sessionTransport: session.agent.transport,
   });
-  if (attempt.cyberAccessProgram !== undefined && attempt.provider !== "openai") {
+  if (
+    attempt.cyberAccessProgram !== undefined &&
+    attempt.cyberAccessProgram !== "standard" &&
+    attempt.provider !== "openai"
+  ) {
     throw new Error(
-      "Explicit access programs are unsupported by this provider. Reset Access to the model default or select an OpenAI model.",
+      "Daybreak access is unsupported by this provider. Select Standard or an OpenAI model.",
     );
   }
   const streamExtraParamsOverride = {
     ...attempt.streamParams,
     fastMode: attempt.fastMode,
-    ...(attempt.cyberAccessProgram !== undefined
-      ? { accessPrograms: { cyber: attempt.cyberAccessProgram } }
+    ...(attempt.provider === "openai"
+      ? { accessPrograms: { cyber: attempt.cyberAccessProgram ?? "standard" } }
       : {}),
     // Memory extraction must see the original history, not a provider summary.
     ...(attempt.trigger === "memory"

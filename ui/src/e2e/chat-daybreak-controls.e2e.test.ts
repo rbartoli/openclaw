@@ -109,6 +109,12 @@ suite.define(() => {
                 elements.map((element) => element.getAttribute("data-chat-access-option") ?? ""),
               );
             expect(options).toEqual(programs ?? []);
+            expect(await picker.locator("[data-chat-access-default]").count()).toBe(0);
+            expect(
+              await select
+                .locator('[data-chat-access-option="standard"]')
+                .getAttribute("aria-checked"),
+            ).toBe("true");
             expect(await select.locator("button:disabled").count()).toBe(0);
             expect(await menu.locator(".chat-controls__effort-heading").allTextContents()).toEqual([
               "Access",
@@ -172,7 +178,7 @@ suite.define(() => {
             await modelPicker.locator("summary").click();
             const modelMenu = modelPicker.locator(".chat-controls__model-menu");
             await expect.poll(() => modelMenu.isVisible()).toBe(true);
-            const recovery = modelMenu.getByRole("button", { name: "Clear saved Access" });
+            const recovery = modelMenu.getByRole("button", { name: "Use Standard Access" });
             const staleFrame = await takeControlUiScreenshotFrame(page, modelMenu, [], {
               animations: "disabled",
             });
@@ -185,21 +191,25 @@ suite.define(() => {
                   asOptionalRecord((await gateway.getRequests("sessions.patch")).at(-1)?.params)
                     ?.cyberAccessProgram,
               )
-              .toBeNull();
+              .toBe("standard");
             await expect.poll(() => recovery.count()).toBe(0);
             await expect
               .poll(async () => (await gateway.getSessionRow("agent:main:main")).cyberAccessProgram)
-              .toBeUndefined();
+              .toBe("standard");
           } else if (entitled) {
-            await picker.locator("[data-chat-access-default]").click();
+            await select.locator('[data-chat-access-option="standard"]').click();
             await expect
               .poll(
                 async () =>
                   asOptionalRecord((await gateway.getRequests("sessions.patch")).at(-1)?.params)
                     ?.cyberAccessProgram,
               )
-              .toBeNull();
-            await expect.poll(() => select.locator('[aria-checked="true"]').count()).toBe(0);
+              .toBe("standard");
+            await expect
+              .poll(() =>
+                select.locator('[data-chat-access-option="standard"]').getAttribute("aria-checked"),
+              )
+              .toBe("true");
           }
         },
       );

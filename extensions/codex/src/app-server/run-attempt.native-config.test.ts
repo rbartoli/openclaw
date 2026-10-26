@@ -336,7 +336,7 @@ describe("Codex native configuration", () => {
       stubCodexInferenceTransportEnv();
       const catalogModel = "catalog-primary";
       const runtimeModel = "native-primary";
-      const allowedModels = new Set([catalogModel]);
+      const allowedModels = new Set([catalogModel, "gpt-daybreak-blue-latest"]);
       const { source: operatorSource, listeners: policyListeners } = mutableOperator(
         "restricted-retry-fixture",
         () => {
@@ -505,7 +505,7 @@ describe("Codex native configuration", () => {
             .map(({ params: request }) =>
               isJsonObject(request) ? request.cyberAccessProgram : undefined,
             ),
-        ).toEqual([undefined, "daybreakBlue"]);
+        ).toEqual(["standard", "daybreakBlue"]);
         if (permission === "revoked") {
           await expect(run).rejects.toThrow("operator role cannot use this model");
         } else {
@@ -648,7 +648,7 @@ describe("Codex native configuration", () => {
       const bindModelExecution = vi.fn<
         NonNullable<typeof params.hostCapabilities.bindModelExecution>
       >((model) => {
-        expect(model).toEqual(runtimeSelection);
+        expect(model).toEqual({ ...runtimeSelection, cyberAccessProgram: "standard" });
         if (modelPolicyAction === "deny") {
           throw new Error("operator role cannot use this model");
         }

@@ -60,7 +60,13 @@ async function createControlsFixture(
     sessionsResult,
     hello: sessionMutationGatewayHello([scope]),
     chatModelCatalog: [
-      { id: "gpt-test-a", name: "Test model", provider: "openai", supportsFastMode: true },
+      {
+        id: "gpt-test-a",
+        name: "Test model",
+        provider: "openai",
+        supportsFastMode: true,
+        availableAccessPrograms: { cyber: ["standard", "daybreak_blue"] },
+      },
       { id: "gpt-test-b", name: "Other model", provider: "openai", supportsFastMode: true },
     ],
     chatModelSwitchPromises: {},
@@ -117,6 +123,33 @@ async function createControlsFixture(
 }
 
 describe("chat pane model-setting permissions", () => {
+  it("saves Standard Access when the displayed default has no explicit choice", async () => {
+    const { state, selectedSession, container } =
+      await createControlsFixture("operator.sessions.write");
+    renderPaneModelControl(renderControls(state).composerControls, container);
+    const standard = container.querySelector<HTMLButtonElement>(
+      '[data-chat-access-option="standard"]',
+    )!;
+    expect(standard.getAttribute("aria-checked")).toBe("true");
+    state.request.mockImplementation(async (method, params) => {
+      if (method === "sessions.patch") {
+        expect(params).toEqual(expect.objectContaining({ cyberAccessProgram: "standard" }));
+        Object.assign(selectedSession, { cyberAccessProgram: "standard" });
+        return { ok: true, key: selectedSession.key, entry: selectedSession };
+      }
+      return { ...createSessionsListResult(), sessions: [selectedSession] };
+    });
+    standard.click();
+    await getPendingChatPickerPatch(state, state.sessionKey);
+    expect(state.request).toHaveBeenCalledWith(
+      "sessions.patch",
+      expect.objectContaining({ cyberAccessProgram: "standard" }),
+    );
+    state.request.mockClear();
+    renderPaneModelControl(renderControls(state).composerControls, container);
+    container.querySelector<HTMLButtonElement>('[data-chat-access-option="standard"]')!.click();
+    expect(state.request).not.toHaveBeenCalled();
+  });
   it("persists an explicit Standard choice over inherited speed", async () => {
     const { state, selectedSession, container } =
       await createControlsFixture("operator.sessions.write");

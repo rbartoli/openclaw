@@ -128,6 +128,7 @@ export class NewSessionModelControl extends NewSessionModelSelection {
             ) {
               if (this.initialModelPending && !result.modelSelectionPolicy?.restricted) {
                 this.resetSelection(this.initialModel);
+                this.cyberAccessProgram = this.pendingPreference?.cyberAccessProgram;
               } else {
                 this.restorePreference();
               }
@@ -158,12 +159,14 @@ export class NewSessionModelControl extends NewSessionModelSelection {
             ) {
               if (this.initialModelPending) {
                 this.resetSelection(this.initialModel);
+                this.cyberAccessProgram = this.pendingPreference?.cyberAccessProgram;
                 this.initialModelPending = false;
               } else if (this.pendingPreference) {
                 this.selected = this.pendingPreference.model ?? "";
                 this.agentRuntime = this.pendingPreference.agentRuntime;
                 this.thinkingLevel = this.pendingPreference.thinkingLevel ?? "";
                 this.fastMode = this.pendingPreference.fastMode;
+                this.cyberAccessProgram = this.pendingPreference.cyberAccessProgram;
               }
             }
             this.restoringPreference = false;
@@ -256,8 +259,7 @@ export class NewSessionModelControl extends NewSessionModelSelection {
     if (!client || !model) {
       return Promise.resolve(false);
     }
-    this.selectionGeneration += 1;
-    this.restoringPreference = false;
+    this.beginUserSelection();
     this.draftAccount = { authProfileId: account.authProfileId, provider: account.provider, model };
     const requestedScope = { agentId: this.agentId, authProfileId: account.authProfileId };
     this.metadataState = {
@@ -500,7 +502,10 @@ export class NewSessionModelControl extends NewSessionModelSelection {
       return;
     }
     this.pendingSelectionGeneration = ++this.selectionGeneration;
-    this.pendingPreference = { fastMode: this.fastMode };
+    this.pendingPreference = {
+      fastMode: this.fastMode,
+      cyberAccessProgram: this.cyberAccessProgram,
+    };
     // Account previews are draft-local, not the user’s persistent account preference.
     if (!restoredOnly && this.clearDraftAccount()) {
       this.load(this.pendingContext, this.agentId, true, { agent: this.pendingAgent });
@@ -551,10 +556,14 @@ export class NewSessionModelControl extends NewSessionModelSelection {
     });
   }
 
-  selectModel(value: string, agentRuntime?: string) {
+  private beginUserSelection() {
     this.selectionGeneration += 1;
-    this.initialModelPending = false;
     this.restoringPreference = false;
+  }
+
+  selectModel(value: string, agentRuntime?: string) {
+    this.beginUserSelection();
+    this.initialModelPending = false;
     const change = this.selectModelIntent(
       value,
       agentRuntime,
@@ -693,9 +702,13 @@ export class NewSessionModelControl extends NewSessionModelSelection {
           this.catalogTargets.retry(this.metadataClient, this.agentId);
         }
       },
+      requestedAccessProgram: this.cyberAccessProgram,
+      onAccessProgramSelect: (value) => {
+        this.beginUserSelection();
+        this.selectAccessProgram(value);
+      },
       onThinkingSelect: (value) => {
-        this.selectionGeneration += 1;
-        this.restoringPreference = false;
+        this.beginUserSelection();
         this.thinkingLevel = value;
         this.markExplicitSelection();
         this.persistSelection();
@@ -703,16 +716,14 @@ export class NewSessionModelControl extends NewSessionModelSelection {
         this.notify();
       },
       onFastModeSelect: (value) => {
-        this.selectionGeneration += 1;
-        this.restoringPreference = false;
+        this.beginUserSelection();
         this.fastModeSelected = true;
         this.fastMode = normalizeChatFastModeInput(value);
         this.persistSelection();
         this.notify();
       },
       onContextWindowSelect: (value) => {
-        this.selectionGeneration += 1;
-        this.restoringPreference = false;
+        this.beginUserSelection();
         this.contextWindow = value;
         this.notify();
       },

@@ -70,7 +70,7 @@ test("write-scoped operators change and reset effort in an existing session", as
     const clearedEntry = loadSessionEntry({ sessionKey: "agent:main:topic-a", storePath });
     expect(clearedEntry?.thinkingLevel).toBeUndefined();
     expect(clearedEntry?.fastMode).toBeUndefined();
-    expect(clearedEntry?.cyberAccessProgram).toBeUndefined();
+    expect(clearedEntry?.cyberAccessProgram).toBe("standard");
   } finally {
     ws.close();
   }

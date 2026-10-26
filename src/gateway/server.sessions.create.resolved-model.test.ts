@@ -272,3 +272,67 @@ test.each([
     runs.releaseAgentRunDelegatedAuthority(delegatedAuthority);
   }
 });
+
+test("Access-only requests enforce the alias role policy across create, patch, and reset", async () => {
+  const { storePath } = await createSessionStoreDir();
+  const cfg = await modelConfig(
+    { model: "openai/fixture", models: { "openai/fixture": {} } },
+    {
+      openai: {
+        api: "openai-responses",
+        baseUrl: "https://fixture.invalid/v1",
+        models: [makeModel("fixture")],
+      },
+    },
+  );
+  const client = createSessionMutationTestClient();
+  client.internal = {
+    operatorRunAuthority: operatorAuthority(cfg, "limited-operator", {
+      allow: ["openai/*"],
+      deny: ["openai/gpt-daybreak-red-latest"],
+    }),
+  };
+  const context = { getRuntimeConfig: () => cfg, getCommittedRuntimeConfig: () => cfg };
+  const key = "agent:main:dashboard:access-role";
+  const request = (method: string, params: Record<string, unknown>) =>
+    sessions.directSessionReq(method, { key, ...params }, { client, context });
+  expect(
+    await request("sessions.create", { agentId: "main", cyberAccessProgram: "daybreak_red" }),
+  ).toMatchObject({ ok: false, error: { code: "FORBIDDEN" } });
+  expect(loadSessionEntry({ agentId: "main", sessionKey: key, storePath })).toBeUndefined();
+  await writeSessionStore({
+    entries: {
+      [key]: sessions.sessionStoreEntry("access-role", { cyberAccessProgram: "daybreak_blue" }),
+    },
+  });
+  expect(await request("sessions.patch", { cyberAccessProgram: "daybreak_red" })).toMatchObject({
+    ok: false,
+    error: { code: "FORBIDDEN" },
+  });
+  expect(
+    loadSessionEntry({ agentId: "main", sessionKey: key, storePath })?.cyberAccessProgram,
+  ).toBe("daybreak_blue");
+  await writeSessionStore({
+    entries: {
+      [key]: sessions.sessionStoreEntry("access-role", { cyberAccessProgram: "daybreak_red" }),
+    },
+  });
+  expect(await request("sessions.reset", { reason: "new" })).toMatchObject({
+    ok: false,
+    error: { code: "FORBIDDEN" },
+  });
+  await writeSessionStore({
+    entries: { [key]: sessions.sessionStoreEntry("access-role") },
+  });
+  expect(
+    await request("sessions.create", { agentId: "main", cyberAccessProgram: "standard" }),
+  ).toMatchObject({ ok: true });
+  expect(
+    loadSessionEntry({ agentId: "main", sessionKey: key, storePath })?.cyberAccessProgram,
+  ).toBe("standard");
+  expect(await request("sessions.patch", { cyberAccessProgram: null })).toMatchObject({ ok: true });
+  expect(await request("sessions.reset", { reason: "new" })).toMatchObject({ ok: true });
+  expect(
+    loadSessionEntry({ agentId: "main", sessionKey: key, storePath })?.cyberAccessProgram,
+  ).toBe("standard");
+});

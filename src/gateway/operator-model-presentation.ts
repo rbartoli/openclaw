@@ -3,6 +3,7 @@ import { asOptionalRecord } from "@openclaw/normalization-core/record-coerce";
 import type {
   AgentsListResult,
   ModelsListResult,
+  ModelChoice,
 } from "../../packages/gateway-protocol/src/index.js";
 import type { ModelCatalogEntry } from "../agents/model-catalog.types.js";
 import { modelKey } from "../agents/model-ref-shared.js";
@@ -12,6 +13,7 @@ import {
   resolveModelRefFromString,
 } from "../agents/model-selection-shared.js";
 import { createModelVisibilityPolicy } from "../agents/model-visibility-policy.js";
+import { isOperatorAccessProgramAllowed } from "../agents/operator-access-program.js";
 import {
   prepareOperatorModelPolicy,
   readOperatorModelPolicyMembership,
@@ -188,8 +190,32 @@ export function prepareOperatorModelPolicyPresentation(params: {
     return undefined;
   }
   const manifestPlugins = metadataSnapshot ?? [];
-  const filterModels = <T extends { provider: string; id: string }>(models: T[]) =>
-    models.filter((model) => policy.allows({ provider: model.provider, model: model.id }));
+  const projectAccess = <T extends Pick<ModelChoice, "availableAccessPrograms">>(entry: T): T =>
+    entry.availableAccessPrograms
+      ? {
+          ...entry,
+          availableAccessPrograms: {
+            cyber: entry.availableAccessPrograms.cyber.filter((program) =>
+              isOperatorAccessProgramAllowed(policy, program),
+            ),
+          },
+        }
+      : entry;
+  const filterModels = <T extends ModelChoice>(models: T[]): T[] => {
+    const visible: T[] = [];
+    for (const model of models) {
+      if (!policy.allows({ provider: model.provider, model: model.id })) {
+        continue;
+      }
+      const projected = projectAccess(model);
+      visible.push(
+        model.runtimeChoices
+          ? { ...projected, runtimeChoices: model.runtimeChoices.map(projectAccess) }
+          : projected,
+      );
+    }
+    return visible;
+  };
   const hidden = (provider: unknown, model: unknown) =>
     (provider != null || model != null) &&
     (typeof provider !== "string" ||

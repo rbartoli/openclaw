@@ -44,6 +44,38 @@ it("reuses row redactions before copying while evaluating current model visibili
   expect(variants).toEqual([first]);
 });
 
+it("filters Access by historical alias permission on every runtime choice", () => {
+  const allows = ({ model }: { model: string }) => model !== "gpt-daybreak-red-latest";
+  const projection = prepareOperatorModelPolicyPresentation({
+    cfg: {},
+    policy: { models: [], allows },
+  })!;
+  const programs = { cyber: ["standard", "daybreak_blue", "daybreak_red"] as const };
+  const input = {
+    models: [
+      {
+        provider: "openai",
+        id: "fixture",
+        name: "Fixture",
+        availableAccessPrograms: { cyber: [...programs.cyber] },
+        runtimeChoices: [
+          {
+            agentRuntime: { id: "codex", label: "Codex", source: "model" as const },
+            availableAccessPrograms: { cyber: [...programs.cyber] },
+          },
+        ],
+      },
+    ],
+  };
+  const result = projection.forAgent("main").catalog(input);
+  expect(result.models[0]?.availableAccessPrograms?.cyber).toEqual(["standard", "daybreak_blue"]);
+  expect(result.models[0]?.runtimeChoices?.[0]?.availableAccessPrograms?.cyber).toEqual([
+    "standard",
+    "daybreak_blue",
+  ]);
+  expect(input.models[0]?.availableAccessPrograms.cyber).toEqual(programs.cyber);
+});
+
 const loadManifestMetadataSnapshot = vi.hoisted(() => vi.fn());
 vi.mock("../plugins/manifest-contract-eligibility.js", async (importOriginal) => {
   const actual =

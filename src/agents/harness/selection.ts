@@ -13,6 +13,7 @@ import { formatErrorMessage } from "../../infra/errors.js";
 import { createSubsystemLogger } from "../../logging/subsystem.js";
 import { hasGlobalHooks } from "../../plugins/hook-runner-global.js";
 import {
+  assertOperatorAccessProgramAllowed,
   assertOperatorModelAllowed,
   bindOperatorModelExecution,
   readRunOperatorAuthority,
@@ -201,6 +202,7 @@ export async function runAgentHarnessAttempt(
   params: EmbeddedRunAttemptParams,
   nativeSessionRuntime?: import("../embedded-agent-runner/run/model-setup.js").PreparedNativeSessionRuntime,
 ): Promise<EmbeddedRunAttemptResult> {
+  assertOperatorAccessProgramAllowed(readRunOperatorAuthority(params), params.cyberAccessProgram);
   let internalParams = params as EmbeddedRunAttemptParams & {
     systemAgentTool?: SystemAgentToolOptions;
   };
@@ -305,6 +307,10 @@ export async function runAgentHarnessAttempt(
             }
           }
           attempt.hostCapabilities?.assertActive();
+          assertOperatorAccessProgramAllowed(
+            readRunOperatorAuthority(params),
+            params.cyberAccessProgram,
+          );
           return harness.runAttempt(attempt);
         },
       );

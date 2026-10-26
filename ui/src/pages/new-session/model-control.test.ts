@@ -678,3 +678,21 @@ describe("runtime choices", () => {
     expect(changed).not.toHaveBeenCalled();
   });
 });
+
+it("preserves explicit Access in a restored draft and across model changes", async () => {
+  const { control, context } = setup([luna, sol]);
+  control.restoreDraftSelection({
+    agentId: "main",
+    model: "openai/gpt-5.6-luna",
+    thinkingLevel: "",
+    cyberAccessProgram: "daybreak_red",
+  });
+  control.load(context, "main", true, { agent: effortAgent, configuredDefaults: true });
+  await vi.waitFor(() => expect(control.selected).toBe("openai/gpt-5.6-luna"));
+  expect(control.cyberAccessProgram).toBe("daybreak_red");
+  control.selectModel("openai/gpt-5.6-sol");
+  expect(control.draftSelection("main")).toMatchObject({
+    model: "", // The selected model is the configured default.
+    cyberAccessProgram: "daybreak_red",
+  });
+});

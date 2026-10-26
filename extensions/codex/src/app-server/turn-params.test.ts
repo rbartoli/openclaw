@@ -251,7 +251,7 @@ it("adds a permission notice without overwriting native supervised settings", as
 });
 
 it.each([
-  [undefined, undefined],
+  [undefined, "standard"],
   ["standard", "standard"],
   ["daybreak_blue", "daybreakBlue"],
   ["daybreak_red", "daybreakRed"],
@@ -268,11 +268,11 @@ it.each([
 );
 
 it.each([
-  { configured: { cyber: "daybreak_blue" }, expected: "daybreakBlue" },
-  { configured: {}, expected: undefined },
+  { configured: { cyber: "daybreak_blue" }, expected: "standard" },
+  { configured: {}, expected: "standard" },
   { configured: { cyber: "daybreak_red" }, session: "standard" as const, expected: "standard" },
 ])(
-  "uses prepared model access configuration without overriding a session choice: %j",
+  "uses Standard unless the session explicitly selected Access: %j",
   async ({ configured, session, expected }) => {
     const runtimePlan = createCodexRuntimePlanFixture();
     runtimePlan.transport = {

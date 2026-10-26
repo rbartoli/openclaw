@@ -373,6 +373,13 @@ suite.define(() => {
           );
         }
         const picker = page.locator(".chat-controls__effort-picker").first();
+        await picker.locator('[data-chat-access-option="standard"]').click();
+        await expect
+          .poll(async () => {
+            const result = await call<SessionsListResult>("sessions.list", { agentId: "main" });
+            return result.sessions.find((session) => session.key === key)?.cyberAccessProgram;
+          })
+          .toBe("standard");
         await picker.locator('[data-chat-access-option="daybreak_red"]').click();
         await expect
           .poll(async () => {
@@ -401,10 +408,30 @@ suite.define(() => {
           .toBe(false);
       },
     );
+    await call("agent", { sessionKey: key, message: "/new", idempotencyKey: randomUUID() });
+    const afterReset = await call<SessionsListResult>("sessions.list", { agentId: "main" });
+    expect(afterReset.sessions.find((session) => session.key === key)?.cyberAccessProgram).toBe(
+      "daybreak_red",
+    );
+    const afterResetIndex = receipts.length;
+    await call("chat.send", {
+      sessionKey: key,
+      message: "Reply after reset.",
+      idempotencyKey: randomUUID(),
+    });
+    await expect.poll(() => receipts.length).toBe(afterResetIndex + 1);
+    expect(receipts[afterResetIndex]?.access).toEqual({ cyber: "daybreak_red" });
+    await expect
+      .poll(async () => {
+        const result = await call<SessionsListResult>("sessions.list", { agentId: "main" });
+        return Boolean(result.sessions.find((session) => session.key === key)?.hasActiveRun);
+      })
+      .toBe(false);
     proof.platformDiscovery = {
+      resetPreservesAccess: true,
       complete: true,
       discoveryInferenceRequests: 0,
-      selectedAccessRequests: 1,
+      selectedAccessRequests: 2,
     };
   }, 90_000);
 
@@ -591,11 +618,11 @@ suite.define(() => {
             if (value) {
               await select.locator(`[data-chat-access-option="${value}"]`).click();
             } else {
-              await picker.locator("[data-chat-access-default]").click();
+              await select.locator('[data-chat-access-option="standard"]').click();
             }
             await expect
               .poll(async () => (await row()).cyberAccessProgram)
-              .toBe(value || undefined);
+              .toBe(value || "standard");
           };
           const send = async (text: string) =>
             evaluateControlUiContext(
@@ -648,6 +675,7 @@ suite.define(() => {
             boost: input.dataset.effortBoost,
           }));
           await snapshot("both");
+          await choose("daybreak_red");
           const red = select.locator('[data-chat-access-option="daybreak_red"]');
           await red.focus();
           await red.press("Home");
@@ -674,7 +702,7 @@ suite.define(() => {
             held.delete(first);
             reply(response, first);
             await expect.poll(() => receipts.length).toBe(first + 2);
-            expect(receipts[first + 1]?.access).toEqual(target ? { cyber: target } : undefined);
+            expect(receipts[first + 1]?.access).toEqual({ cyber: target || "standard" });
             await expect.poll(async () => Boolean((await row()).hasActiveRun)).toBe(false);
             proof[name + "-queued-" + (target || "cleared")] = receipts.slice(first, first + 2);
           }
@@ -731,7 +759,7 @@ suite.define(() => {
           await picker.locator("summary").click();
           const modelPicker = page.locator(".chat-controls__model-picker").first();
           await modelPicker.locator("summary").click();
-          const recovery = modelPicker.getByRole("button", { name: "Clear saved Access" });
+          const recovery = modelPicker.getByRole("button", { name: "Use Standard Access" });
           await recovery.waitFor();
           const stale = await takeControlUiScreenshotFrame(
             page,
@@ -741,12 +769,12 @@ suite.define(() => {
           );
           await writeFile(path.join(dir, name + "-stale-selection.png"), stale.png);
           await recovery.click();
-          await expect.poll(async () => (await row()).cyberAccessProgram).toBeUndefined();
+          await expect.poll(async () => (await row()).cyberAccessProgram).toBe("standard");
           await expect.poll(() => recovery.count()).toBe(0);
           const before = receipts.length;
           await send("Continue after clearing stale Access.");
           await expect.poll(() => receipts.length).toBe(before + 1);
-          expect(receipts[before]?.access).toBeUndefined();
+          expect(receipts[before]?.access).toEqual({ cyber: "standard" });
           await expect.poll(async () => Boolean((await row()).hasActiveRun)).toBe(false);
         },
       );

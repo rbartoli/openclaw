@@ -91,7 +91,11 @@ export function parseStoredDraft(value: unknown): StoredDurableComposerDraft | n
       typeof selection.agentId !== "string" ||
       typeof selection.model !== "string" ||
       typeof selection.thinkingLevel !== "string" ||
-      (selection.agentRuntime !== undefined && typeof selection.agentRuntime !== "string"))
+      (selection.agentRuntime !== undefined && typeof selection.agentRuntime !== "string") ||
+      (selection.cyberAccessProgram !== undefined &&
+        selection.cyberAccessProgram !== "standard" &&
+        selection.cyberAccessProgram !== "daybreak_blue" &&
+        selection.cyberAccessProgram !== "daybreak_red"))
   ) {
     record.modelSelection = undefined;
   }

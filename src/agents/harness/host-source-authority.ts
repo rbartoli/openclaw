@@ -1,4 +1,3 @@
-import type { ProviderModelRef as ModelRef } from "@openclaw/model-catalog-core/model-catalog-refs";
 import {
   captureExternalSessionCommitGuard,
   composeSessionSourceAssertion,
@@ -138,7 +137,7 @@ export function bindHarnessNativeSpawnAuthority(
 /** Acquires original-source model authority while the issuing host is active. */
 export function bindHarnessModelExecution(
   admittedRunContext: AdmittedRunContext,
-  model: ModelRef | undefined,
+  model: Parameters<NonNullable<AgentHarnessHostCapabilities["bindModelExecution"]>>[0],
   assertActive: () => void,
 ): ReturnType<NonNullable<AgentHarnessHostCapabilities["bindModelExecution"]>> {
   assertActive();
@@ -220,7 +219,9 @@ export function retainHarnessSource(
       assertCurrent();
       return source.source;
     },
-    bindModelExecution: (model: ModelRef | undefined) => {
+    bindModelExecution: (
+      model: Parameters<NonNullable<AgentHarnessHostCapabilities["bindModelExecution"]>>[0],
+    ) => {
       assertCurrent();
       const binding = bindOperatorModelExecution(source, model);
       if (!binding) {
