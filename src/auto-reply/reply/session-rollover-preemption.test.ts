@@ -173,6 +173,7 @@ it("rejects /new before interrupting a session whose saved Access is forbidden",
     profileId: "limited-operator",
     scopes: ["operator.write"],
     assertCurrent() {},
+    rolePolicy: { sessionAccessCap: "none", sandboxRequired: false, agents: "*" },
     modelPolicy: prepareOperatorModelPolicy({ cfg, policy: { allow: ["openai/fixture"] } }),
   });
   try {
