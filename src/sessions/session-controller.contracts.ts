@@ -661,7 +661,6 @@ type ReplyOperationAdmissionSnapshot =
         | "aborted"
         | "lifecycle-invalidated"
         | "queue-cap"
-        | "collaborative-steering-disabled"
         | "question-response-indeterminate"
         | "question-response-refused"
         | "question-response-rejected";
