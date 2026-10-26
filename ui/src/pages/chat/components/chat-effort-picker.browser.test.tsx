@@ -312,7 +312,7 @@ it("maps effort fill to actual supported stops without boosting a narrowed minim
   ).toBe("true");
 });
 
-it("uses entitled Access segments with shared keyboard behavior and a separate default reset", async () => {
+it("uses entitled Access segments with shared keyboard behavior and explicit Standard", async () => {
   const onSelect = vi.fn();
   const accessProgram = {
     sessionKey: "effort-preview",
@@ -334,7 +334,8 @@ it("uses entitled Access segments with shared keyboard behavior and a separate d
     group.querySelector<HTMLButtonElement>('[data-chat-access-option="' + value + '"]')!;
   expect(group.getAttribute("role")).toBe("radiogroup");
   expect(group.querySelector("select")).toBeNull();
-  expect(group.querySelectorAll('[aria-checked="true"]')).toHaveLength(0);
+  expect(group.querySelectorAll('[aria-checked="true"]')).toHaveLength(1);
+  expect(option("standard").getAttribute("aria-checked")).toBe("true");
   expect(option("standard").tabIndex).toBe(0);
   await userEvent.click(option("daybreak_red"));
   expect(onSelect).toHaveBeenLastCalledWith("daybreak_red", "effort-preview");
@@ -348,8 +349,9 @@ it("uses entitled Access segments with shared keyboard behavior and a separate d
   );
   expect(document.activeElement).toBe(option("daybreak_blue"));
   expect(onSelect).toHaveBeenLastCalledWith("daybreak_blue", "effort-preview");
-  await userEvent.click(host!.querySelector<HTMLButtonElement>("[data-chat-access-default]")!);
-  expect(onSelect).toHaveBeenLastCalledWith(null, "effort-preview");
+  expect(host!.querySelector("[data-chat-access-default]")).toBeNull();
+  await userEvent.click(option("standard"));
+  expect(onSelect).toHaveBeenLastCalledWith("standard", "effort-preview");
   await fixture(["low", "high"], "low", false, undefined, true, {
     ...accessProgram,
     requested: "daybreak_red",

@@ -51,6 +51,7 @@ const repositoryReady = (state: Place, kind = "git") =>
   vi.waitFor(() => expect(state.repository.kind).toBe(kind));
 const emptyWorkspace = {
   agentId: "main",
+  cyberAccessProgram: "standard",
   message: "",
   titleSource: "Start empty",
   worktree: true,
