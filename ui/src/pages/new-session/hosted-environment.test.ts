@@ -225,7 +225,12 @@ it("suppresses remote clone and worktree payloads while preserving place intent"
   state.selectHostedEnvironment("agentsapi");
   expect(state).toMatchObject({ remotePlacement: false, deviceId: "", worktree: false });
   const payload = buildSelectedSessionCreateParams(state, createSelection);
-  expect(payload).toStrictEqual({ agentId: "main", message: "hello", ...preferred });
+  expect(payload).toStrictEqual({
+    agentId: "main",
+    message: "hello",
+    ...preferred,
+    cyberAccessProgram: "standard",
+  });
   expect(state.preferenceSelection().remoteProject).toEqual(before.remoteProject);
   state.selectDevice("desktop");
   expect(state.modelControl.resolveAgentRuntime()?.id).toBe("openclaw");

@@ -173,6 +173,7 @@
     }
   },
   "cwd": "/tmp/openclaw-happy-path/workspace",
+  "cyberAccessProgram": "standard",
   "effort": "medium",
   "input": [
     {

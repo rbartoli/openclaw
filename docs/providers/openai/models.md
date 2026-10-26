@@ -121,13 +121,15 @@ The Access choice is saved independently of speed, survives `/new` and session
 reset, and is inherited by a fork unless replaced. Changing it affects the next
 admitted turn, not an already-running model call.
 
-Operator roles reuse the existing model policy: Blue requires permission for
-`openai/gpt-daybreak-blue-latest`, and Red requires permission for
-`openai/gpt-daybreak-red-latest`, in addition to permission for the actual model.
-A role without a model restriction stays unrestricted. This compatibility mapping
-does not restore the retired models or grant provider entitlement. Server-side
-checks apply to direct requests, creation, and execution, including retries and
-revoked permissions. A forbidden explicit choice fails rather than changing Access.
+Named operator roles grant Blue and Red independently through
+`gateway.roles.definitions.<role>.accessPrograms.cyber`. List `daybreak_blue`,
+`daybreak_red`, or both; an omitted or empty grant list permits Standard only,
+including for admin-scoped roles or roles without model restrictions. The actual
+model must separately be allowed by the role's model policy, and provider
+entitlement is still required. Retired model aliases do not grant Access.
+Server-side checks apply to direct requests, creation, and execution, including
+retries and revoked permissions. A forbidden explicit choice fails rather than
+changing Access.
 
 The OpenClaw runtime sends the program to its official Responses endpoint. Native
 Codex uses its supported turn-scoped access-program parameter. This OpenClaw

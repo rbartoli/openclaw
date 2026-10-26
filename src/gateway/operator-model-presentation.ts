@@ -130,7 +130,7 @@ export function projectOperatorModelRead<
     policyConfig: scope.context.getCommittedRuntimeConfig?.() ?? cfg,
     client: scope.client,
   });
-  if (!presentation) {
+  if (!presentation || (!presentation.restrictsModels && !result.metadata)) {
     return result;
   }
   const policy =
@@ -297,6 +297,7 @@ export function prepareOperatorModelPolicyPresentation(params: {
   };
 
   return {
+    restrictsModels: policy !== undefined,
     session: projectSession,
     message: projectMessage,
     deltaMessage(this: void, value: unknown): unknown {
