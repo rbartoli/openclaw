@@ -43,7 +43,11 @@ import {
   createAgentSkillsReader,
   type AgentSkillsState,
 } from "./skills.ts";
-import { createAgentToolsCatalog, createAgentEffectiveTools } from "./tools.ts";
+import {
+  createAgentToolsCatalog,
+  createAgentEffectiveTools,
+  agentEffectiveToolsEventInvalidates,
+} from "./tools.ts";
 
 type AgentsPageData = Omit<AgentsState, "agentsLoading" | "agentsError" | "agentsList"> &
   AgentFilesState &
@@ -77,6 +81,7 @@ export function createAgentsPageState(
 ) {
   let routeData = initialRouteData;
   let active = true;
+  let effectiveToolsRefreshPending = false;
   const presentation = createAgentsPageLifetime();
   const [skillsFilter, setSkillsFilter] = createSignal("");
   const identities = projectOwner(context.agentIdentity, (identity) => identity.entries());
@@ -208,6 +213,7 @@ export function createAgentsPageState(
       }
     },
     ensureInitialData: () => ensureInitialData(),
+    onPageActivation: () => refreshEffectiveToolsForCurrentSession(false),
   });
   const isCurrentToolsRead = (client: GatewayBrowserClient, generation: number, agentId: string) =>
     isCurrentRequest(client, generation, agentId, {});
@@ -275,6 +281,7 @@ export function createAgentsPageState(
     skills.reset();
     toolsCatalog.invalidate();
     effectiveTools.reset();
+    effectiveToolsRefreshPending = false;
     cron.retire();
     state.cron = {
       ...state.cron,
@@ -455,6 +462,7 @@ export function createAgentsPageState(
     resetIdentityDraft(state);
     toolsCatalog.reset();
     effectiveTools.reset();
+    effectiveToolsRefreshPending = false;
     cron.retire();
     state.cron = createInitialCronState({
       client: state.client,
@@ -465,15 +473,22 @@ export function createAgentsPageState(
   function loadEffectiveToolsForAgent(agentId: string, refresh = false) {
     if (agentId !== chatAgentId()) {
       effectiveTools.reset();
+      effectiveToolsRefreshPending = false;
       return;
     }
-    effectiveTools.ensure(agentId, state.sessionKey, refresh);
+    effectiveToolsRefreshPending ||= refresh;
+    if (state.agentsPanel !== "tools" || document.visibilityState === "hidden") {
+      return;
+    }
+    const force = effectiveToolsRefreshPending;
+    effectiveToolsRefreshPending = false;
+    effectiveTools.ensure(agentId, state.sessionKey, force);
   }
 
-  function refreshEffectiveToolsForCurrentSession() {
+  function refreshEffectiveToolsForCurrentSession(refresh = true) {
     const agentId = state.agentsSelectedId;
-    if (state.agentsPanel === "tools" && agentId) {
-      loadEffectiveToolsForAgent(agentId, true);
+    if (agentId) {
+      loadEffectiveToolsForAgent(agentId, refresh);
     }
   }
 
@@ -666,10 +681,26 @@ export function createAgentsPageState(
         syncGitHubIdentity(state.agentsSelectedId);
         publish();
       }),
-      // Session model receipts replace the tools.effective request key before older results settle.
+      // Local model receipts change the request key; unrelated roster publications reuse it.
       context.sessions.subscribe(() => {
-        refreshEffectiveToolsForCurrentSession();
+        if (state.agentsPanel === "tools" && state.agentsSelectedId) {
+          loadEffectiveToolsForAgent(state.agentsSelectedId);
+        }
         publish();
+      }),
+      context.gateway.subscribeEvents((event) => {
+        const agentId = state.agentsSelectedId;
+        if (
+          agentId &&
+          agentEffectiveToolsEventInvalidates(event, {
+            agentId,
+            sessionKey: state.sessionKey,
+            agentsList: state.agentsList,
+            hello: context.gateway.snapshot.hello,
+          })
+        ) {
+          refreshEffectiveToolsForCurrentSession();
+        }
       }),
     ];
     applyRoute();
