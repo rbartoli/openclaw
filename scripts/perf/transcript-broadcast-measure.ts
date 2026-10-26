@@ -43,6 +43,8 @@
 // foreground session its own managed worktree, read/grep its README, and cycle list searches.
 // This mode keeps a fixed viewer set instead of adding reconnect churn.
 // --stress-tool-search adds a verified catalog search before each --stress-tools execution.
+// --stress-network-tool adds a verified loopback HTTP tool inside each Code Mode cell.
+// Fixed N/2N retention usage: transcript-broadcast-run-retention.md.
 // --poll-between-rounds keeps list/mixed-RPC polling active between memory-soak cohorts.
 // On a fresh team-shape fixture, exercise sidebar/search and usage refresh with:
 // node --import ./scripts/tsx.mjs scripts/perf/transcript-broadcast-measure.ts \
@@ -167,6 +169,7 @@ const { values } = parseArgs({
     "stress-tools": { type: "boolean", default: false },
     "worktree-tool-churn": { type: "boolean", default: false },
     "stress-tool-search": { type: "boolean", default: false },
+    "stress-network-tool": { type: "boolean", default: false },
     "attempt-setup-image": { type: "string" },
     "cold-session-rounds": { type: "string", default: "0" },
     "turn-start-phases": { type: "boolean", default: false },
@@ -434,6 +437,9 @@ if (
 const toolScenario = scenario === "chat.send" || reasoningScenario;
 if (values["stress-tool-search"] && !values["stress-tools"]) {
   throw new Error("--stress-tool-search requires --stress-tools");
+}
+if (values["stress-network-tool"] && !values["stress-tools"]) {
+  throw new Error("--stress-network-tool requires --stress-tools");
 }
 const chatActiveHoldMs = integer(values["chat-active-hold-ms"], "--chat-active-hold-ms", 0);
 if (
@@ -1483,7 +1489,12 @@ let reloadPluginId: string | undefined;
 let scopePluginId: string | undefined;
 let updateReloadPlugin: (() => number) | undefined;
 const pluginUpdateLatenciesMs: number[] = [];
-if (scenario === "plugins.reload" || scenario === "plugin.scope" || syntheticPluginCount > 0) {
+if (
+  scenario === "plugins.reload" ||
+  scenario === "plugin.scope" ||
+  syntheticPluginCount > 0 ||
+  values["stress-network-tool"]
+) {
   const plugin = writePluginFixtures(output, {
     count: Math.max(1, syntheticPluginCount),
     activationOnStartup: true,
@@ -1532,6 +1543,28 @@ module.exports = { id, register(api) {
   }, { scope: "operator.read" });
 } };\n`,
     );
+  } else if (values["stress-network-tool"]) {
+    const id = plugin.pluginIds[0]!;
+    const pluginDir = path.join(plugin.pluginsDir, id);
+    writeFileSync(
+      path.join(pluginDir, "index.cjs"),
+      `module.exports = { id: ${JSON.stringify(id)}, register(api) {
+  api.registerTool(() => ({ name: "benchmark_network", label: "Synthetic HTTP probe",
+    description: "Fetch a synthetic note from the isolated benchmark server.",
+    parameters: { type: "object", properties: {}, additionalProperties: false },
+    execute: async (_id, _params, signal) => {
+      const response = await fetch(${JSON.stringify(`http://127.0.0.1:${mockPort}/network-tool`)}, { signal });
+      if (!response.ok) throw new Error("Synthetic HTTP probe failed");
+      const text = await response.text();
+      return { content: [{ type: "text", text }], details: { text } };
+    }
+  }), { name: "benchmark_network" });
+} };\n`,
+    );
+    const manifestPath = path.join(pluginDir, "openclaw.plugin.json");
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+    manifest.contracts = { tools: ["benchmark_network"] };
+    writeFileSync(manifestPath, JSON.stringify(manifest));
   }
   cfg.plugins = {
     ...cfg.plugins,
@@ -2038,6 +2071,7 @@ let activePrimaryStreams = 0;
 let peakPrimaryStreams = 0;
 let toolCalls = 0;
 let toolResults = 0;
+let networkToolRequests = 0;
 let outputLimitResponses = 0;
 let recoveredResponses = 0;
 let imageRequests = 0;
@@ -2151,6 +2185,11 @@ const expectedHistoricalReasoning =
     : [];
 const attemptSetupCatalog = new Set<string>();
 const mock = createServer((req, res) => {
+  if (values["stress-network-tool"] && req.url === "/network-tool") {
+    networkToolRequests++;
+    res.end("synthetic-network-tool-verified");
+    return;
+  }
   if (req.url === "/health") {
     res.end("ok");
     return;
@@ -2478,6 +2517,9 @@ const mock = createServer((req, res) => {
                       storeCode +
                       (values["stress-tool-search"]
                         ? 'if (!(await catalog.search("read file content", { limit: 5 })).some(tool => tool.name === "read")) throw new Error("Synthetic tool search omitted read");\n'
+                        : "") +
+                      (values["stress-network-tool"]
+                        ? 'const network = await benchmark_network({}); if (network.text !== "synthetic-network-tool-verified") throw new Error("Synthetic network tool result mismatch");\n'
                         : "") +
                       `json(await read({ path: ${JSON.stringify((values["worktree-tool-churn"] || values["stress-worktree-fanout"]) && toolWorktree ? path.join(toolWorktree, "README.md") : toolPath)} }));\n` +
                       `const shell = await exec({ command: ${JSON.stringify(stressShellCommand)}, workdir: ${JSON.stringify(toolWorktree)} });\n` +
@@ -6062,6 +6104,7 @@ try {
     primaryStreamRequests = 0;
     toolCalls = 0;
     toolResults = 0;
+    networkToolRequests = 0;
     outputLimitResponses = 0;
     recoveredResponses = 0;
     imageRequests = 0;
@@ -6633,6 +6676,11 @@ try {
         `incomplete synthetic reasoning replay: ${JSON.stringify({ reasoningResponses, reasoningReplayRequests })}`,
       );
     }
+    if (values["stress-network-tool"] && networkToolRequests !== toolCalls) {
+      throw new Error(
+        `expected one HTTP request per Code Mode cell: ${networkToolRequests}/${toolCalls}`,
+      );
+    }
     if (verifyHistoryReplay && historicalReplayRequests !== sessionCount) {
       throw new Error(
         `Deep history reached only ${historicalReplayRequests}/${sessionCount} foreground turns`,
@@ -6689,6 +6737,7 @@ try {
     const sample = {
       round,
       scenario,
+      ...(values["stress-network-tool"] ? { networkToolRequests } : {}),
       allocation,
       ...(values["config-capture-counts"]
         ? {
@@ -7433,6 +7482,7 @@ try {
       : {}),
     stressSessionStore: values["stress-session-store"],
     stressToolSearch: values["stress-tool-search"],
+    stressNetworkTool: values["stress-network-tool"],
     transcriptHydrationCounts: values["transcript-hydration-counts"],
     operatorAccessPolicy: values["operator-access-policy"],
     cronOperatorTurn: values["cron-operator-turn"],
