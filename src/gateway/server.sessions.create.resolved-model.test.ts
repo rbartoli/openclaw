@@ -49,6 +49,7 @@ const operatorAuthority = (
   admittedRuns.createAdmittedRunOperatorAuthority({
     profileId,
     scopes: ["operator.write"],
+    rolePolicy: { sessionAccessCap: "none", sandboxRequired: false, agents: "*" },
     assertCurrent: () => {},
     modelPolicy: prepareOperatorModelPolicy({ cfg, policy }),
   });
@@ -273,7 +274,7 @@ test.each([
   }
 });
 
-test("Access-only requests enforce the alias role policy across create, patch, and reset", async () => {
+test("Access-only requests require explicit grants despite wildcard model access", async () => {
   const { storePath } = await createSessionStoreDir();
   const cfg = await modelConfig(
     { model: "openai/fixture", models: { "openai/fixture": {} } },
@@ -289,7 +290,6 @@ test("Access-only requests enforce the alias role policy across create, patch, a
   client.internal = {
     operatorRunAuthority: operatorAuthority(cfg, "limited-operator", {
       allow: ["openai/*"],
-      deny: ["openai/gpt-daybreak-red-latest"],
     }),
   };
   const context = { getRuntimeConfig: () => cfg, getCommittedRuntimeConfig: () => cfg };

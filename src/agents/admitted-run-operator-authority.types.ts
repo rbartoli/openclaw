@@ -31,6 +31,11 @@ export type AdmittedRunOperatorAuthority = Readonly<{
     sessionAccessCap: GatewayOperatorRoleDefinition["sessions"]["others"];
     sandboxRequired: boolean;
     agents: "*" | readonly string[];
+    accessPrograms?: Readonly<{
+      cyber: ReadonlyArray<
+        NonNullable<GatewayOperatorRoleDefinition["accessPrograms"]>["cyber"][number]
+      >;
+    }>;
   }>;
   modelPolicy?: PreparedOperatorModelPolicy;
   /** Committed policy changes invalidate only executions using a removed model. */

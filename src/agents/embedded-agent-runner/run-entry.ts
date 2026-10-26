@@ -485,7 +485,7 @@ async function runEmbeddedAgentEntryInternal<T extends EmbeddedAgentRunResult>(
       target &&
       params.selection.cyberAccessProgram === undefined &&
       (!operatorAuthority?.modelPolicy || operatorAuthority.modelPolicy.allows(target)) &&
-      isOperatorAccessProgramAllowed(operatorAuthority?.modelPolicy, "daybreak_blue") &&
+      isOperatorAccessProgramAllowed(operatorAuthority?.rolePolicy, "daybreak_blue") &&
       !isFallbackCandidateSkipped({
         sessionId: params.identity.sessionId,
         provider: target.provider,

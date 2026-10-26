@@ -19,6 +19,7 @@ import {
   type AdmittedRunOperatorAuthority,
 } from "../admitted-run-context.js";
 import type { EmbeddedRunAttemptParams } from "../embedded-agent-runner/run/types.js";
+import { requiresOperatorModelExecutionPolicy } from "../operator-access-program.js";
 import {
   captureGatewayToolReceiptAssertion,
   type getGatewayToolCallerIdentity,
@@ -211,7 +212,7 @@ export function retainHarnessSource(
     assertCurrent,
     get modelPolicyRequired() {
       assertCurrent();
-      const required = source.modelPolicy !== undefined;
+      const required = requiresOperatorModelExecutionPolicy(source);
       assertCurrent();
       return required;
     },

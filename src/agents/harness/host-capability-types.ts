@@ -91,7 +91,7 @@ export type AgentHarnessHostCapabilities = Readonly<{
     | Readonly<{
         assertCurrent: () => void;
         signal?: AbortSignal;
-        /** Live preflight fact; absence means unknown, not an unrestricted source. */
+        /** Model or Access dispatch enforcement; absence means unknown, not unrestricted. */
         modelPolicyRequired?: boolean;
         /** Opaque equality for compatible active input; never authority by itself. */
         sourceIdentity?: object;

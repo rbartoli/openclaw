@@ -113,6 +113,15 @@ export function createAdmittedRunOperatorAuthority(
     rolePolicy: source.rolePolicy
       ? Object.freeze({
           ...source.rolePolicy,
+          ...(source.rolePolicy.accessPrograms
+            ? {
+                accessPrograms: Object.freeze({
+                  cyber: Object.freeze(
+                    [...new Set(source.rolePolicy.accessPrograms.cyber)].toSorted(),
+                  ),
+                }),
+              }
+            : {}),
           agents:
             source.rolePolicy.agents === "*"
               ? "*"
@@ -171,9 +180,9 @@ export function assertOperatorAccessProgramAllowed(
   }
   assertAdmittedRunOperatorAuthority(authority);
   authority.assertCurrent();
-  if (!isOperatorAccessProgramAllowed(authority.modelPolicy, program)) {
+  if (!isOperatorAccessProgramAllowed(authority.rolePolicy, program)) {
     throw new Error(
-      "Your operator role cannot use this Access level. Choose Standard or ask a gateway administrator to update your role's model policy.",
+      "Your operator role cannot use this Access level. Choose Standard or ask a gateway administrator to grant this Access level to your role.",
     );
   }
 }
